@@ -23,6 +23,24 @@ def range(a, b) {
 
 # ------------------------------------------------------------------------------
 
+# Precomputed test data
+
+def numbers(n) {
+  def l := [].diverge()
+  for i in range(0, n) { l.push(i) }
+  return l.snapshot()
+}
+
+def testList10 := numbers(10)
+def testList100 := numbers(100)
+def testList1000 := numbers(1000)
+
+def testMap10 := {__makeMap.fromColumns(def c := numbers(10), c)}
+def testMap100 := {__makeMap.fromColumns(def c := numbers(100), c)}
+def testMap1000 := {__makeMap.fromColumns(def c := numbers(1000), c)}
+
+# ------------------------------------------------------------------------------
+
 /** Do-nothing benchmark, used to remove constant overhead from measurement. */
 def empty() {}
 
@@ -51,9 +69,13 @@ def makeAndCallMapSimple() {
   return m1.fetch(1, fn {0})
 }
 
-def testList10 := { def l := [].diverge(); for i in range(0, 10) { l.push(i) }; l.snapshot() }
-def testList100 := { def l := [].diverge(); for i in range(0, 100) { l.push(i) }; l.snapshot() }
-def testList1000 := { def l := [].diverge(); for i in range(1, 1000) { l.push(i) }; l.snapshot() }
+def callMapSimple(m) { return fn {
+  m.fetch(1, fn {0})
+}}
+
+def callMapSugar(m) { return fn {
+  m | m
+}}
 
 # Things which are defaulted/able (sugar) operations on lists in E-on-CL at the moment
 
@@ -84,9 +106,15 @@ def listIterate(l) { return fn {
 
 # ------------------------------------------------------------------------------
 
+# XXX TODO: better way of handling data size variation
+
 def benchmarks := [
   => callHost, => callE,
   => makeAndCallMapSimple, => makeAndCallMapSugar,
+  "callMapSimple 10"   => callMapSimple(testMap10),
+  "callMapSugar 10"   => callMapSugar(testMap10),
+  "callMapSugar 100"  => callMapSugar(testMap100),
+  "callMapSugar 1000" => callMapSugar(testMap1000),
   "listRun1 10" => listRun1(testList10),
   "listRun1 100" => listRun1(testList100),
   "listRun1 1000" => listRun1(testList1000),
