@@ -3,10 +3,7 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
-pragma.enable("anon-lambda")
+pragma.syntax("0.9")
 pragma.enable("accumulator")
 
 def range(a, b) {
@@ -51,7 +48,7 @@ def callHost() {
 
 def callE() {
   # XXX this is subject to constant folding
-  thunk { 1 } ()
+  fn { 1 } ()
 }
 
 #def doSomeStuff() {
