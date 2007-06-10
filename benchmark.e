@@ -134,10 +134,6 @@ def benchmarks := [
 
 # ------------------------------------------------------------------------------
 
-
-#def timesIn := 20000
-def timesOut := 3
-
 def measureN(routine, times) {
   var i := 0
   def before := timer.now()
@@ -148,23 +144,21 @@ def measureN(routine, times) {
   return after - before
 }
 
+def milliToMicro := 1000
+
 /** Compute the average resource use of a function; returns a time in microseconds and the number of iterations used per timing segment. */
 def measure(routine) {
   routine() # discard first run to ignore cache effects
   
-  # figure appropriate number of iterations
-  var timesIn := 1
   var timeSpent := 0
+  var iterationsDone := 0
   while (timeSpent < 2000) { # 2 seconds
-    timesIn *= 2
-    timeSpent := measureN(routine, timesIn)
+    def step := 4.max(iterationsDone)
+    timeSpent += measureN(routine, step)
+    iterationsDone += step
   }
   
-  var sum := 0
-  for _ in range(0, timesOut) {
-    sum += measureN(routine, timesIn)
-  }
-  return [sum * 1000 // (timesIn * timesOut), timesIn]
+  return [timeSpent * milliToMicro // (iterationsDone), iterationsDone]
 }
 
 def lJustify(s, n) { return (s + " " * n).run(0, n.max(s.size())) }
