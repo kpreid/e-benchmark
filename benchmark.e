@@ -101,36 +101,95 @@ def listIterate(l) { return fn {
   sum
 }}
 
+# ---
+
+# Accumulation
+
+def listAccumWith(n) { return fn {
+  var acc := []
+  for i in range(0, n) {
+    acc with= i
+  }
+  acc
+}}
+
+def listAccumFlex(n) { return fn {
+  def acc := [].diverge()
+  for i in range(0, n) {
+    acc.push(i)
+  }
+  acc.snapshot()
+}}
+
+def setAccumWith(n) { return fn {
+  var acc := [].asSet()
+  for i in range(0, n) {
+    acc with= i
+  }
+  acc
+}}
+
+def setAccumFlex(n) { return fn {
+  def acc := [].asSet().diverge()
+  for i in range(0, n) {
+    acc.addElement(i)
+  }
+  acc.snapshot()
+}}
+
+def mapAccumWith(n) { return fn {
+  var acc := [].asMap()
+  for i in range(0, n) {
+    acc with= (i, i)
+  }
+  acc
+}}
+
+def mapAccumFlex(n) { return fn {
+  def acc := [].asMap().diverge()
+  for i in range(0, n) {
+    acc[i] := i
+  }
+  acc.snapshot()
+}}
+
 # ------------------------------------------------------------------------------
 
-# XXX TODO: better way of handling data size variation
+def variants(fs, vs) {
+  return accum [].asMap() \
+    for fName => f in fs {
+      for argName => arg in vs {
+        _.with(`$fName $argName`, f(arg))
+      }
+    }
+}
 
-def benchmarks := [
-  => callHost, => callE,
-  => makeAndCallMapSimple, => makeAndCallMapSugar,
-  "callMapSimple 10"   => callMapSimple(testMap10),
-  "callMapSugar 10"   => callMapSugar(testMap10),
-  "callMapSugar 100"  => callMapSugar(testMap100),
-  "callMapSugar 1000" => callMapSugar(testMap1000),
-  "listRun1 10" => listRun1(testList10),
-  "listRun1 100" => listRun1(testList100),
-  "listRun1 1000" => listRun1(testList1000),
-  "listRun2 10" => listRun2(testList10),
-  "listRun2 100" => listRun2(testList100),
-  "listRun2 1000" => listRun2(testList1000),
-  "listIterate 10" => listIterate(testList10),
-  "listIterate 100" => listIterate(testList100),
-  "listIterate 1000" => listIterate(testList1000),
-  "listDiverge 10" => listDiverge(testList10),
-  "listDiverge 100" => listDiverge(testList100),
-  "listDiverge 1000" => listDiverge(testList1000),
-  "listDivergeAnyish 10" => listDivergeAnyish(testList10),
-  "listDivergeAnyish 100" => listDivergeAnyish(testList100),
-  "listDivergeAnyish 1000" => listDivergeAnyish(testList1000),
-  "listDivergeFloat 10" => listDivergeFloat(testList10),
-  "listDivergeFloat 100" => listDivergeFloat(testList100),
-  "listDivergeFloat 1000" => listDivergeFloat(testList1000),
-]
+def benchmarks :=
+    [=> callHost, => callE,
+     => makeAndCallMapSimple, => makeAndCallMapSugar] \
+  | variants([=> callMapSimple,
+              => callMapSugar],
+             ["10" => testMap10,
+              "100" => testMap100,
+              "1000" => testMap1000]) \
+  | variants([=> listRun1,
+              => listRun2,
+              => listIterate,
+              => listDiverge,
+              => listDivergeAnyish,
+              => listDivergeFloat],
+             ["10" => testList10,
+              "100" => testList100,
+              "1000" => testList1000]) \
+  | variants([=> listAccumWith,
+              => listAccumFlex,
+              => setAccumWith,
+              => setAccumFlex,
+              => mapAccumWith,
+              => mapAccumFlex],
+             ["100" => 100,
+              "1000" => 1000,
+              "10000" => 10000])
 
 # ------------------------------------------------------------------------------
 
