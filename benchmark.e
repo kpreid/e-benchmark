@@ -176,6 +176,15 @@ def runBenchmarks(out, table) {
   #out.println("Empty: " + emptyTime)
   for name => routine in table {
     out.print(lJustify(name, 20), " ")
+
+    try { routine() } catch p {
+      def i := out.indent(" " * 21)
+      i.print("Failed: ")
+      i.quote(p)
+      out.println()
+      continue
+    }
+
     def [tRun, iRun] := measure(routine)
     def [tNull, iNull] := measure(empty)
     out.print(rJustify(E.toString(tRun - tNull), 8), " us ")
