@@ -1,0 +1,224 @@
+# Copyright 2006-2008 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.syntax("0.9")
+pragma.enable("accumulator")
+
+def range(a, b) {
+  return def cheapRange {
+    to iterate(f) {
+      var i := a
+      while (i < b) {
+        f(i, i)
+        i += 1
+      }
+    }
+  } 
+}
+
+# ------------------------------------------------------------------------------
+
+# Precomputed test data
+
+def numbers(n) {
+  def l := [].diverge()
+  for i in range(0, n) { l.push(i) }
+  return l.snapshot()
+}
+
+def testList10 := numbers(10)
+def testList100 := numbers(100)
+def testList1000 := numbers(1000)
+
+def testMap10 := {__makeMap.fromColumns(def c := numbers(10), c)}
+def testMap100 := {__makeMap.fromColumns(def c := numbers(100), c)}
+def testMap1000 := {__makeMap.fromColumns(def c := numbers(1000), c)}
+
+# ------------------------------------------------------------------------------
+
+def callHost() {
+  # XXX this is subject to constant folding
+  1234 + 5678
+}
+
+def callE() {
+  # XXX this is subject to constant folding
+  fn { 1 } ()
+}
+
+#def doSomeStuff() {
+#  e`def x := 0; def y := 1`.eval(safeScope)
+#}
+
+def makeAndCallMapSugar() {
+  def m1 := [1 => 2, 3 => 4]
+  def m2 := [5 => 6, 7 => 8]
+  return m1 | m2
+}
+
+def makeAndCallMapSimple() {
+  def m1 := [1 => 2, 3 => 4]
+  return m1.fetch(1, fn {0})
+}
+
+def callMapSimple(m) { return fn {
+  m.fetch(1, fn {0})
+}}
+
+def callMapSugar(m) { return fn {
+  m | m
+}}
+
+# Things which are defaulted/able (sugar) operations on lists in E-on-CL at the moment
+
+def listRun1(l) { return fn {
+  l.run(l.size() // 3)
+}}
+
+def listRun2(l) { return fn {
+  l.run(l.size() // 3, l.size() // 1.5)
+}}
+
+def listDiverge(l) { return fn {
+  l.diverge()
+}}
+def listDivergeFloat(l) { return fn {
+  l.diverge(float64)
+}}
+def anyish { to coerce(specimen, optEjector) { return specimen }}
+def listDivergeAnyish(l) { return fn {
+  l.diverge(anyish)
+}}
+
+def listIterate(l) { return fn {
+  var sum := 0
+  l.iterate(fn k, v {sum += v})
+  sum
+}}
+
+# ---
+
+# Accumulation
+
+def listAccumWith(n) { return fn {
+  var acc := []
+  for i in range(0, n) {
+    acc with= i
+  }
+  acc
+}}
+
+def listAccumFlex(n) { return fn {
+  def acc := [].diverge()
+  for i in range(0, n) {
+    acc.push(i)
+  }
+  acc.snapshot()
+}}
+
+def setAccumWith(n) { return fn {
+  var acc := [].asSet()
+  for i in range(0, n) {
+    acc with= i
+  }
+  acc
+}}
+
+def setAccumFlex(n) { return fn {
+  def acc := [].asSet().diverge()
+  for i in range(0, n) {
+    acc.addElement(i)
+  }
+  acc.snapshot()
+}}
+
+def mapAccumWith(n) { return fn {
+  var acc := [].asMap()
+  for i in range(0, n) {
+    acc with= (i, i)
+  }
+  acc
+}}
+
+def mapAccumFlex(n) { return fn {
+  def acc := [].asMap().diverge()
+  for i in range(0, n) {
+    acc[i] := i
+  }
+  acc.snapshot()
+}}
+
+# ---
+
+# Sameness
+
+/** make a tree with branch ** depth nodes */
+def makeSelflessTree(branch, depth) {
+  return if (depth.aboveZero()) {
+    # using ConstMap because ConstList is more likely to be handled specially
+    accum [].asMap() for i in 1..branch {
+      _.with(i, makeSelflessTree(branch, depth.previous()))
+    }
+  } else { null }
+}
+
+def sameTreesStatic([d, b]) {
+  def tree1 := makeSelflessTree(d, b)
+  def tree2 := makeSelflessTree(d, b)
+  return fn { tree1 == tree2 }
+}
+
+def sameTreesFresh([d, b]) {
+  return fn { 
+    def tree1 := makeSelflessTree(d, b)
+    def tree2 := makeSelflessTree(d, b)
+    tree1 == tree2
+  }
+}
+
+# ------------------------------------------------------------------------------
+
+def variants(fs, vs) {
+  return accum [].asMap() \
+    for fName => f in fs {
+      for argName => arg in vs {
+        _.with(`$fName $argName`, f(arg))
+      }
+    }
+}
+
+def benchmarks :=
+    [=> callHost, => callE,
+     => makeAndCallMapSimple, => makeAndCallMapSugar] \
+  | variants([=> callMapSimple,
+              => callMapSugar],
+             ["10" => testMap10,
+              "100" => testMap100,
+              "1000" => testMap1000]) \
+  | variants([=> listRun1,
+              => listRun2,
+              => listIterate,
+              => listDiverge,
+              => listDivergeAnyish,
+              => listDivergeFloat],
+             ["10" => testList10,
+              "100" => testList100,
+              "1000" => testList1000]) \
+  | variants([=> listAccumWith,
+              => listAccumFlex,
+              => setAccumWith,
+              => setAccumFlex,
+              => mapAccumWith,
+              => mapAccumFlex],
+             ["100" => 100,
+              "1000" => 1000,
+              "10000" => 10000]) \
+  | variants([=> sameTreesStatic,
+              #=> sameTreesFresh -- not enabled; takes too long and doesn't exercise anything useful until an E impl gets merge-on-sameness
+              ],
+             ["2^3" => [2, 3],
+              "2^8" => [2, 8],
+              "10^2" => [10, 2],
+              "100^1" => [100, 1]])
+
+benchmarks
