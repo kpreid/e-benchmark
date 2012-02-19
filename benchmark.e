@@ -12,13 +12,24 @@ def benchmarks := <import:benchmarks.benchmarks>
 /** Do-nothing benchmark, used to remove constant overhead from measurement. */
 def empty() {}
 
+
+def girt := lisp["CL", "GET-INTERNAL-RUN-TIME"].getFunction()
+def itups := lisp["CL", "INTERNAL-TIME-UNITS-PER-SECOND"].get()
+println(`CPU resolution is $itups.`)
+
+def timerCPU {
+  to now() {
+    return girt() * 1000 / itups
+  }
+}
+
 def measureN(routine, times) {
   var i := 0
-  def before := timer.now()
+  def before := timerCPU.now()
   while ((i += 1) <= times) {
     routine()
   }
-  def after := timer.now()
+  def after := timerCPU.now()
   return after - before
 }
 
